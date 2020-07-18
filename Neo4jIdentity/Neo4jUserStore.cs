@@ -76,7 +76,6 @@ namespace Neo4jIdentity
         public Task SetNormalizedUserNameAsync(TUser user, string normalizedName, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
             ThrowIfDisposed();
 
             user.NormalizedUserName = normalizedName;
@@ -87,11 +86,12 @@ namespace Neo4jIdentity
         public async Task<IdentityResult> CreateAsync(TUser user, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
             ThrowIfDisposed();
 
-            if (string.IsNullOrWhiteSpace(user.Id))
-                user.Id = Guid.NewGuid().ToString();
+            if (user.Id == default)
+            {
+                user.Id = Guid.NewGuid();
+            }
 
             var query = new CypherFluentQuery(GraphClient)
                 .Create($"(:{UserLabel} {{user}})")
@@ -105,7 +105,6 @@ namespace Neo4jIdentity
         public async Task<IdentityResult> UpdateAsync(TUser user, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
             ThrowIfDisposed();
 
             var query = UserMatch()
@@ -741,6 +740,28 @@ namespace Neo4jIdentity
         {
             return new UserLoginInfo(LoginProvider, ProviderKey, DisplayName);
         }
+    }
+
+        /// <summary>Consts for the Relationships used within the Identity.</summary>
+    internal static class Relationship
+    {
+        /// <summary>Relationship representing whether a user has another Login - <c>HAS_LOGIN</c></summary>
+        /// <remarks><c>(User)-[:HAS_LOGIN]->(Login)</c></remarks>
+        public const string HasLogin = "HAS_LOGIN";
+
+        /// <summary>Relationship representing whether a user has a claim - <c>HAS_CLAIM</c></summary>
+        /// <remarks><c>(User)-[:HAS_CLAIM]->(Login)</c></remarks>
+        public const string HasClaim = "HAS_CLAIM";
+
+        /// <summary>Relationship representing whether a user has a Role - <c>IN_ROLE</c></summary>
+        /// <remarks><c>(User)-[:IN_ROLE]->(Role)</c></remarks>
+        public const string InRole = "IN_ROLE";
+
+        /// <summary>Relationship representing whether a user has been locked out - <c>IS_LOCKED_OUT</c></summary>
+        /// <remarks><c>(User)-[:IS_LOCKED_OUT]->(Lockout)</c></remarks>
+        public const string IsLockedOut = "IS_LOCKED_OUT";
+
+
     }
 
     #endregion Internal Classes for Serialization
