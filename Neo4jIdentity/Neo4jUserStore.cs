@@ -7,6 +7,7 @@
     using Microsoft.AspNetCore.Identity;
     using Neo4jClient;
     using Neo4jClient.Cypher;
+    using static Guards.Guard;
 
 namespace Neo4jIdentity 
 {
@@ -45,6 +46,8 @@ namespace Neo4jIdentity
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
 
+            ArgumentNotNull(user, nameof(user));
+
             return Task.FromResult(user.Id.ToString());
         }
 
@@ -53,6 +56,8 @@ namespace Neo4jIdentity
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
 
+            ArgumentNotNull(user, nameof(user));
+
             return Task.FromResult(user.UserName);
         }
 
@@ -60,6 +65,9 @@ namespace Neo4jIdentity
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+
+            ArgumentNotNull(user, nameof(user));
+            ArgumentNotNullOrEmpty(userName, nameof(userName));
 
             user.UserName = userName;
             return Task.CompletedTask;
@@ -70,6 +78,8 @@ namespace Neo4jIdentity
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
 
+            ArgumentNotNull(user, nameof(user));
+
             return Task.FromResult(user.NormalizedUserName);
         }
 
@@ -77,6 +87,9 @@ namespace Neo4jIdentity
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+
+            ArgumentNotNull(user, nameof(user));
+            ArgumentNotNullOrEmpty(normalizedName, nameof(normalizedName));
 
             user.NormalizedUserName = normalizedName;
 
@@ -87,6 +100,8 @@ namespace Neo4jIdentity
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+
+            ArgumentNotNull(user, nameof(user));
 
             if (user.Id == default)
             {
@@ -114,7 +129,7 @@ namespace Neo4jIdentity
                 .With("u").OptionalMatch($"(u)-[:{Relationship.HasClaim}]->(c:{ClaimLabel})").DetachDelete("c")
                 .With("u").OptionalMatch($"(u)-[:{Relationship.HasLogin}]->(l:{LoginLabel})").DetachDelete("l")
                 .With("u").OptionalMatch($"(u)-[:{Relationship.InRole}]->(r:{RoleLabel})").DetachDelete("r")
-                .With("u").OptionalMatch($"(u)-[:{Relationship.IsLockedOut}]->(lo:{LockoutInfo.Label})").DetachDelete("lo");
+                .With("u").OptionalMatch($"(u)-[:{Relationship.IsLockedOut}]->(lo:Lockout)").DetachDelete("lo");
 
             query = AddClaims(query, user.Claims);
             query = AddLogins(query, user.Logins);
@@ -128,7 +143,6 @@ namespace Neo4jIdentity
         public async Task<IdentityResult> DeleteAsync(TUser user, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
             ThrowIfDisposed();
 
             var query = UserMatch()
@@ -142,15 +156,14 @@ namespace Neo4jIdentity
         public async Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNullOrWhiteSpace(userId, nameof(userId));
             ThrowIfDisposed();
 
             var query = UserMatch()
-                .Where((TUser u) => u.Id == userId)
+                .Where((TUser u) => u.Id.ToString() == userId)
                 .OptionalMatch($"(u)-[:{Relationship.HasLogin}]->(l:{LoginLabel})")
                 .OptionalMatch($"(u)-[:{Relationship.HasClaim}]->(c:{ClaimLabel})")
                 .OptionalMatch($"(u)-[:{Relationship.InRole}]->(r:{RoleLabel})")
-                .OptionalMatch($"(u)-[:{Relationship.IsLockedOut}]->(lo:{LockoutInfo.Label})")
+                .OptionalMatch($"(u)-[:{Relationship.IsLockedOut}]->(lo:Lockout)")
                 .Return((u, c, l, r, lo) => new FindUserResult<TUser>
                 {
                     User = u.As<TUser>(),
@@ -168,7 +181,6 @@ namespace Neo4jIdentity
         public async Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNullOrWhiteSpace(normalizedUserName, nameof(normalizedUserName));
             ThrowIfDisposed();
 
             normalizedUserName = normalizedUserName.ToLowerInvariant().Trim();
@@ -211,7 +223,7 @@ namespace Neo4jIdentity
             return query;
         }
 
-        private  ICypherFluentQuery AddRoles(ICypherFluentQuery query, ICollection<Neo4jIdentityRole> roles)
+        private  ICypherFluentQuery AddRoles(ICypherFluentQuery query, ICollection<Neo4jIdentity.Neo4jIdentityRole> roles)
         {
             if (roles == null || roles.Count == 0)
                 return query;
@@ -283,8 +295,6 @@ namespace Neo4jIdentity
         public Task AddLoginAsync(TUser user, UserLoginInfo login, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
-            Throw.ArgumentException.IfNull(login, nameof(login));
             ThrowIfDisposed();
 
             user.Logins.Add(login);
@@ -295,9 +305,6 @@ namespace Neo4jIdentity
         public Task RemoveLoginAsync(TUser user, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
-            Throw.ArgumentException.IfNull(loginProvider, nameof(loginProvider));
-            Throw.ArgumentException.IfNull(providerKey, nameof(providerKey));
             ThrowIfDisposed();
 
             var login = user.Logins.SingleOrDefault(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey);
@@ -338,8 +345,6 @@ namespace Neo4jIdentity
         public Task SetPasswordHashAsync(TUser user, string passwordHash, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Throw.ArgumentException.IfNull(user, nameof(user));
-            Throw.ArgumentException.IfNullOrWhiteSpace(passwordHash, nameof(passwordHash));
             ThrowIfDisposed();
 
             user.PasswordHash = passwordHash;
@@ -693,13 +698,12 @@ namespace Neo4jIdentity
     #region Internal Classes for Serialization
 
     internal class FindUserResult<T>
-        where T : IdentityUser, new()
+        where T : Neo4jUserBase, new()
     {
         public T User { private get; set; }
         public IEnumerable<Neo4jUserLoginInfo> Logins { private get; set; }
         public IEnumerable<SimplifiedClaim> Claims { private get; set; }
         public IEnumerable<LockoutInfo> Lockout { private get; set; }
-
         public IEnumerable<Neo4jIdentityRole> Roles { private get; set; }
 
         public T Combine()
